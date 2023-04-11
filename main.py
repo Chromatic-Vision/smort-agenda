@@ -1,3 +1,8 @@
+import io
+import json
+import os
+from urllib.request import Request, urlopen
+
 import pygame
 import typing
 import enum
@@ -5,12 +10,14 @@ import math
 import datetime
 
 import api
+import logger
 
 size = (0, 0)
 
 # TODO: settings and colorschemes
 
 pygame.init()
+logger.reset_log()
 
 zermelo = None
 
@@ -20,7 +27,13 @@ tenant = 'gymnasiumnovum'
 
 week_nr = str(int(datetime.datetime.now().strftime('%Y%U')))
 week = None
-print(week_nr)
+# print(week_nr)
+
+config_file = "config.json"
+custom_background = False
+custom_background_url = ""
+
+background_image = None
 
 
 class State(enum.IntEnum):
@@ -32,6 +45,75 @@ class State(enum.IntEnum):
 
 state = State.username
 state_login_fail = False
+
+def save_config():
+    logger.log('Saving config...')
+    filename = config_file
+
+    with open(filename, 'w') as file:
+        config_json_data = {
+            "config": {
+                "custom_background": custom_background,
+                "url": custom_background_url
+            }
+        }
+
+        json.dump(config_json_data, file)
+
+def load_config():
+
+    global custom_background # TODO: fix this trash code
+    global custom_background_url
+    global background_image
+
+    filename = config_file
+    logger.log(f"Loading config '{filename}'")
+
+    if filename not in os.listdir('.'):
+        logger.warn('No config, creating new...')
+
+        with open(filename, 'w') as file:
+            config_json_data = {
+                "config": {
+                    "custom_background": False,
+                    "url": ""
+                }
+            }
+
+            json.dump(config_json_data, file)
+            return
+
+    with open(filename, "r+") as file:
+        try:
+            config_json_data: dict = json.load(file)
+
+            try:
+                custom_background = config_json_data['config']['custom_background']
+                custom_background_url = config_json_data['config']['url']
+
+                # request background image
+                if custom_background and custom_background_url != "":
+                    try:
+
+                        request_site = Request(custom_background_url, headers={"User-Agent": "Mozilla/5.0"})
+
+                        background_file = io.BytesIO(urlopen(request_site).read())
+                        background_image = pygame.image.load(background_file)
+                    except Exception as le:
+                        logger.error(le)
+
+            except KeyError as ke:
+                logger.warn("Broken config file detected! Resetting...")
+                file.truncate()
+
+                save_config()
+
+        except json.decoder.JSONDecodeError as jde:
+            logger.error(f'{filename} JSONDecodeError')
+            logger.error(jde)
+            logger.error(f'{filename}:')
+            file.seek(0)
+            logger.error("'" + str(file.read()) + "'")
 
 
 try:
@@ -45,6 +127,9 @@ try:
         tenant = split[2]
         state = State.login
         zermelo = api.Api(username, password, tenant)
+
+        load_config()
+
 except FileNotFoundError:
     pass
 except ValueError:
@@ -75,7 +160,7 @@ def loading_spinner(x: int, y: int):
 def add_week(delta: int):
     global week_nr
     if delta not in [-1, 0, 1]:
-        raise NotImplementedError('bigger changes than 1')
+        raise NotImplementedError('Bigger changes than 1')
 
     if delta == 0:
         return week_nr
@@ -87,7 +172,7 @@ def add_week(delta: int):
         if len(w[1]) == 1:
             w[1] = '0' + w[1]
         else:
-            assert len(w[1]) == 2, f'week not 1 or 2 number(s) but {len(w[1])}'
+            assert len(w[1]) == 2, f'Week not 1 or 2 number(s) but {len(w[1])}'
     else:
         w[0] = str(int(w[0]) + delta)
         if delta == -1:
@@ -126,6 +211,8 @@ dash_line = pygame.Surface((size[0], 1))
 resize()
 frame = 0
 
+logger.log("Initialized smort-agenda")
+
 while run:
     clock.tick(60)
     screen.fill((0, 0, 0))
@@ -162,6 +249,7 @@ while run:
                     week_nr = add_week(-1)
 
     if zermelo is not None and state == State.main:
+
         zermelo.update()
         week = zermelo.get(week_nr)
 
@@ -169,13 +257,13 @@ while run:
         zermelo.get(add_week(1))
 
     if state != State.main:
-        screen.blit(font.render(str(state)[6:], True, (255, 255, 255)), (0, 0))
+        screen.blit(font.render(str(state)[6:] + "...", True, (255, 255, 255)), (0, 0))
 
     if state == State.username:
         screen.blit(big_font.render(username, True, (255, 255, 255)), (100, 100))
 
         if state_login_fail:
-            s = font.render('incorrect password and/or username', True, (255, 0, 0))
+            s = font.render('Incorrect password and/or username!', True, (255, 0, 0))
             screen.blit(s, (size[0] - s.get_width(), 0))
     elif state == State.password:
         screen.blit(big_font.render(username, True, (255, 255, 255)), (100, 100))
@@ -189,6 +277,8 @@ while run:
         if zermelo.state == zermelo.max_state:
             state = State.main
 
+            logger.log("Login successfull!")
+
             with open('credentials.txt', 'w') as file:
                 file.write(username + '\n' + password + '\n' + tenant)  # TODO: prompt the user if they want to store
         if not zermelo.successfull:
@@ -197,8 +287,11 @@ while run:
                 state_login_fail = True
                 username = ''
                 password = ''
+
+                logger.error("Incorrect password and/or username!")
             else:
                 zermelo = api.Api(username, password, tenant)  # TODO: notify user
+                logger.warn("Server crash??")
 
     elif state == State.main:
         if week is not None:
@@ -207,10 +300,13 @@ while run:
             width = size[0] // 7
 
             # TODO: maybe fill weekdays with (50, 50, 50)?
-            for i in range(24):
-                screen.blit(dash_line, (0, i * height))
-            for i in range(7):
-                pygame.draw.rect(screen, (100, 100, 100), (i * width, 0, 1, size[1]))
+            if custom_background and background_image is not None:
+                screen.blit(background_image, (0, 0))
+            else:
+                for i in range(24):
+                    screen.blit(dash_line, (0, i * height))
+                for i in range(7):
+                    pygame.draw.rect(screen, (100, 100, 100), (i * width, 0, 1, size[1]))
 
             y = 0
             x = 0
@@ -229,10 +325,14 @@ while run:
                     c = (100, 0, 0)
                 pygame.draw.rect(screen, c, (x, y, width, h))
 
+                str_subjects = ', '.join(appointment.subjects)
+                str_teachers = ', '.join(appointment.teachers)
+                str_locations = ', '.join(appointment.locations)
+
                 if not appointment.optional:
-                    s = font.render((str(appointment.subjects[0]) if len(appointment.subjects) == 1 else str(appointment.subjects))
-                                    + ' - ' + (str(appointment.teachers[0]) if len(appointment.teachers) == 1 else str(appointment.teachers))
-                                    + ' > ' + (str(appointment.locations[0]) if len(appointment.locations) == 1 else str(appointment.locations)),
+                    s = font.render((str_subjects
+                                     + (' - ' if str_teachers != '' else '') + str_teachers
+                                     + (' - ' if str_locations != '' else '') + str_locations),
                                     True, (255, 255, 255))
                 else:
                     s = font.render(str(len(appointment.options)), True, (150, 255, 150))
