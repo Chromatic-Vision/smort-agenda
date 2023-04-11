@@ -301,6 +301,7 @@ while run:
 
             # TODO: maybe fill weekdays with (50, 50, 50)?
             if custom_background and background_image is not None:
+                background_image = pygame.transform.smoothscale(background_image, size)
                 screen.blit(background_image, (0, 0))
             else:
                 for i in range(24):
