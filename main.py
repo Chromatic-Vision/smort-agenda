@@ -184,15 +184,15 @@ def add_week(delta: int):
 
 
 pre_mouse_press = [False, False, False]
-font = pygame.font.SysFont('ubuntu', 10)
-big_font = pygame.font.SysFont('ubuntu', 20)
+font = pygame.font.Font('fonts/ubuntu.ttf', 10)
+big_font = pygame.font.Font('fonts/ubuntu.ttf', 20)
 
 
 def resize():
     global size, font, big_font, dash_line
 
-    font = pygame.font.SysFont('ubuntu', size[1] // 30)
-    big_font = pygame.font.SysFont('ubuntu', size[1] // 20)
+    font = pygame.font.Font('fonts/ubuntu.ttf', size[1] // 30)
+    big_font = pygame.font.Font('fonts/ubuntu.ttf', size[1] // 20)
 
     dash_line = pygame.Surface((size[0], 1))
 
@@ -357,7 +357,7 @@ while run:
         else:
             loading_spinner(size[1] // 10, size[1] // 10)
 
-        screen.blit(font.render(week_nr[:4] + ' ' + week_nr[-2:], True, (255, 255, 255)), (0, 0))  # TODO: this will render over anything planned for 0 AM monday
+        screen.blit(font.render(datetime.datetime.strftime(datetime.datetime.now(), '%Y-%m-%d %H:%M:%S'), True, (255, 255, 255)), (0, 0))  # TODO: this will render over anything planned for 0 AM monday
 
     # screen.blit(font.render('Hello, World', True, (255, 255, 255)), (0, 0))
     # screen.blit(big_font.render('Hello, World', True, (255, 255, 255)), (0, size[1] // 30))
