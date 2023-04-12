@@ -1,5 +1,5 @@
 # smort-agenda
-Requires python `3.7` (should i upgrade, i have `3.9`) and pygame 2.*+
+Requires python `3.7` (should i upgrade, i have `3.9`) and pygame `2.*`
 
 # Warning
 Stores login credentials as plain text
