@@ -33,6 +33,9 @@ config_file = "config.json"
 custom_background = False
 custom_background_url = ""
 
+clean_ui = False
+display_informations = True
+
 background_image = None
 
 
@@ -54,7 +57,9 @@ def save_config():
         config_json_data = {
             "config": {
                 "custom_background": custom_background,
-                "url": custom_background_url
+                "background_url": custom_background_url,
+                "clean_ui": clean_ui,
+                "display_informations": display_informations
             }
         }
 
@@ -64,7 +69,9 @@ def load_config():
 
     global custom_background # TODO: fix this trash code
     global custom_background_url
+    global clean_ui
     global background_image
+    global display_informations
 
     filename = config_file
     logger.log(f"Loading config '{filename}'")
@@ -76,7 +83,9 @@ def load_config():
             config_json_data = {
                 "config": {
                     "custom_background": False,
-                    "url": ""
+                    "background_url": "",
+                    "clean_ui": False,
+                    "display_informations": True
                 }
             }
 
@@ -89,7 +98,9 @@ def load_config():
 
             try:
                 custom_background = config_json_data['config']['custom_background']
-                custom_background_url = config_json_data['config']['url']
+                custom_background_url = config_json_data['config']['background_url']
+                clean_ui = config_json_data['config']['clean_ui']
+                display_informations = config_json_data['config']['display_informations']
 
                 # request background image
                 if custom_background and custom_background_url != "":
@@ -104,6 +115,7 @@ def load_config():
 
             except KeyError as ke:
                 logger.warn("Broken config file detected! Resetting...")
+                logger.error(ke)
                 file.truncate()
 
                 save_config()
@@ -182,6 +194,13 @@ def add_week(delta: int):
 
     return ''.join(w)
 
+def start_of_week():
+    global week_nr
+
+    start_day = datetime.datetime.strptime(week_nr[:4], '%Y')
+    t = datetime.datetime.strptime(week_nr[:4] + ' ' + str(int(week_nr[-2:]) * 7 - start_day.isoweekday() + 2), '%Y %j')
+    return t
+
 
 pre_mouse_press = [False, False, False]
 font = pygame.font.Font('fonts/ubuntu.ttf', 10)
@@ -248,6 +267,9 @@ while run:
                 elif event.key == pygame.K_LEFT:
                     week_nr = add_week(-1)
 
+                elif event.key == pygame.K_r:
+                    week_nr = str(int(datetime.datetime.now().strftime('%Y%U')))
+
     if zermelo is not None and state == State.main:
 
         zermelo.update()
@@ -271,7 +293,7 @@ while run:
 
         state_login_fail = False
     elif state == State.login:
-        loading_spinner(size[1] // 10, size[1] // 10)
+        loading_spinner(size[1] // 10, size[1] // 10 + 10)
         pygame.draw.rect(screen, (255, 255, 255),
                          (0, size[1] // 5, round(zermelo.state / zermelo.max_state * size[0]), size[1] // 20))
         if zermelo.state == zermelo.max_state:
@@ -294,6 +316,9 @@ while run:
                 logger.warn("Server crash??")
 
     elif state == State.main:
+
+        cancelled_subjects = []
+
         if week is not None:
             # print(week, week.appointments, week.raw)
             height = int(size[1] / 23.983)
@@ -311,6 +336,8 @@ while run:
 
             y = 0
             x = 0
+
+
             for appointment in week.appointments:
                 # print(appointment.start.isoweekday(), appointment.start.hour + appointment.start.minute / 60)
 
@@ -324,7 +351,7 @@ while run:
                     c = (30, 30, 30)
                 else:
                     c = (100, 0, 0)
-                pygame.draw.rect(screen, c, (x, y, width, h))
+                if not clean_ui: pygame.draw.rect(screen, c, (x, y, width, h))
 
                 str_subjects = ', '.join(appointment.subjects)
                 str_teachers = ', '.join(appointment.teachers)
@@ -346,7 +373,8 @@ while run:
                 screen.blit(s, (x, y))
 
                 if appointment.cancelled:
-                    c = (100, 100, 100)
+                    c = (255, 50, 50)
+                    cancelled_subjects.append(appointment)
                 elif appointment.optional:
                     c = (50, 255, 50)
                 else:
@@ -354,10 +382,30 @@ while run:
                 pygame.draw.rect(screen, c, (x, y, width, h), 1)
 
                 y += height
-        else:
-            loading_spinner(size[1] // 10, size[1] // 10)
 
-        screen.blit(font.render(datetime.datetime.strftime(datetime.datetime.now(), '%Y-%m-%d %H:%M:%S'), True, (255, 255, 255)), (0, 0))  # TODO: this will render over anything planned for 0 AM monday
+        else:
+            loading_spinner(size[1] // 10, size[1] // 10 + 50)
+
+        if display_informations:
+            screen.blit(font.render(datetime.datetime.strftime(datetime.datetime.now(), '%Y-%m-%d %H:%M:%S'), True, (255, 255, 255)), (0, 0)) # TODO: this will render over anything planned for 0 AM monday
+            screen.blit(font.render(start_of_week().strftime('%d %B'), True, (255, 255, 255)), (0, 25))
+
+            if len(cancelled_subjects) > 0:
+
+                cy = 0
+
+                for c in cancelled_subjects:
+                    cy += 25
+
+                ny = size[1] - cy - 40
+
+                screen.blit(font.render("Uitgevallen: ", True, (255, 255, 255)), (0, ny))
+
+                for cs in cancelled_subjects:
+                    screen.blit(font.render(" " + ', '.join(cs.subjects) + " > " + datetime.datetime.strftime(cs.start, "%H:%M") + " ~ " + datetime.datetime.strftime(cs.end, "%H:%M") + (" - " + ', '.join(cs.locations if cs.locations is not None else "") + " (" + datetime.datetime.strftime(cs.start, "%d %B") + ")") , True, (255, 255, 255)), (0, ny + 25))
+                    ny += 25
+
+
 
     # screen.blit(font.render('Hello, World', True, (255, 255, 255)), (0, 0))
     # screen.blit(big_font.render('Hello, World', True, (255, 255, 255)), (0, size[1] // 30))
