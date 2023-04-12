@@ -402,7 +402,7 @@ while run:
                 screen.blit(font.render("Uitgevallen: ", True, (255, 255, 255)), (0, ny))
 
                 for cs in cancelled_subjects:
-                    screen.blit(font.render(" " + ', '.join(cs.subjects) + " > " + datetime.datetime.strftime(cs.start, "%H:%M") + " ~ " + datetime.datetime.strftime(cs.end, "%H:%M") + (" - " + ', '.join(cs.locations if cs.locations is not None else "") + " (" + datetime.datetime.strftime(cs.start, "%d %B") + ")") , True, (255, 255, 255)), (0, ny + 25))
+                    screen.blit(font.render(("  " + (', '.join(cs.subjects) if ', '.join(cs.subjects) != "" else "leeg subject") + " > " + datetime.datetime.strftime(cs.start, "%H:%M") + " ~ " + datetime.datetime.strftime(cs.end, "%H:%M") + (" - " + ', '.join(cs.locations if ', '.join(cs.locations) != "" else "?") + " (" + datetime.datetime.strftime(cs.start, "%d %B") + ")")) , True, (255, 255, 255)), (0, ny + 25))
                     ny += 25
 
 
