@@ -203,15 +203,14 @@ def start_of_week():
 
 
 pre_mouse_press = [False, False, False]
-font = pygame.font.Font('fonts/ubuntu.ttf', 10)
-big_font = pygame.font.Font('fonts/ubuntu.ttf', 20)
-
+font = pygame.font.Font('fonts/jetbrainsmono.ttf', 10)
+big_font = pygame.font.Font('fonts/jetbrainsmono.ttf', 20)
 
 def resize():
     global size, font, big_font, dash_line
 
-    font = pygame.font.Font('fonts/ubuntu.ttf', size[1] // 30)
-    big_font = pygame.font.Font('fonts/ubuntu.ttf', size[1] // 20)
+    font = pygame.font.Font('fonts/jetbrainsmono.ttf', size[1] // 30)
+    big_font = pygame.font.Font('fonts/jetbrainsmono.ttf', size[1] // 20)
 
     dash_line = pygame.Surface((size[0], 1))
 
